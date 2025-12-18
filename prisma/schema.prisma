@@ -1,0 +1,100 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // PostgreSQL datasource for Prisma
+  // Example: DATABASE_URL="postgresql://user:pass@host:5432/dbname?schema=public"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  passwordHash  String
+  name          String
+  title         String?
+  avatarUrl     String?
+  bio           String?
+  phone         String?
+  location      String?
+  role          String    @default("user")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // Soft‑delete and status for robustness
+  isActive      Boolean   @default(true)
+  deletedAt     DateTime?
+
+  messagesSent  Message[] @relation("SentMessages")
+  messagesRecvd Message[] @relation("ReceivedMessages")
+  notifications Notification[]
+
+  analytics     Analytics[]
+}
+
+model Message {
+  id          Int      @id @default(autoincrement())
+  senderId    Int
+  receiverId  Int
+  content     String
+  createdAt   DateTime @default(now())
+
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver    User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
+}
+
+model Call {
+  id           Int         @id @default(autoincrement())
+  title        String
+  /// Array of participant user IDs. Backed by a native PostgreSQL integer[] column.
+  participants Int[]
+  startTime    DateTime    @default(now())
+  duration     Int         @default(0) // seconds
+  type         CallType    @default(AUDIO)
+  status       CallStatus  @default(ONGOING)
+
+  @@index([startTime])
+  @@index([status])
+}
+
+enum CallType {
+  AUDIO
+  VIDEO
+}
+
+enum CallStatus {
+  ONGOING
+  COMPLETED
+  MISSED
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  content   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([read])
+}
+
+model Analytics {
+  id                Int     @id @default(autoincrement())
+  systemHealth      Float   @default(100)
+  teamProductivity  Float   @default(100)
+  userId            Int?    // optional per‑user analytics
+
+  user              User?   @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
